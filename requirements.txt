@@ -1,0 +1,4 @@
+pydantic==2.10.4
+requests
+python-dotenv
+shapely
