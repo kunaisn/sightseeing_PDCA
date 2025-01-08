@@ -8,19 +8,17 @@ from pydantic import ValidationError
 import os
 import random
 import configparser
+from dotenv import load_dotenv
 
 config_ini = configparser.ConfigParser()
 config_ini.read("config.ini", encoding="utf-8")
-
-from dotenv import load_dotenv
-
 load_dotenv()
 
 # Google Maps APIキーの環境変数読み込み
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
 
 from models.LocationHistory import LocationHistory
-from models.GooglePlace import GooglePlace
+from models.GooglePlaceDetail import GooglePlaceDetail
 
 from geo_area_calculator import calculate_total_area, calculate_coverage_ratio
 
@@ -44,7 +42,7 @@ def load_location_history_list(filepath: str) -> list[LocationHistory]:
 
 def get_google_place_details(
     place_id: str, disable_cache: bool = False
-) -> GooglePlace | None:
+) -> GooglePlaceDetail | None:
 
     get_fields_list = [
         "name",
@@ -67,7 +65,7 @@ def get_google_place_details(
     if os.path.exists(f"places/{place_id}.json"):
         with open(f"places/{place_id}.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-            return GooglePlace(**data)
+            return GooglePlaceDetail(**data)
 
     # Google Places APIを用いて情報を取得（3回繰り返す）
     if GOOGLE_MAPS_API_KEY is None or GOOGLE_MAPS_API_KEY == "":
@@ -99,14 +97,14 @@ def get_google_place_details(
     with open(f"places/{place_id}.json", "w", encoding="utf-8") as f:
         json.dump(response.json(), f, ensure_ascii=False, indent=4)
     data = response.json()
-    return GooglePlace(**data)
+    return GooglePlaceDetail(**data)
 
 
 def get_google_place_details_list(
     visits: list[LocationHistory], disable_cache: bool = False
-) -> dict[str, GooglePlace]:
+) -> dict[str, GooglePlaceDetail]:
 
-    google_places: dict[str, GooglePlace] = {}
+    google_places: dict[str, GooglePlaceDetail] = {}
     for v in visits:
         place_id = v.visit.topCandidate.placeID
         if place_id in google_places:
@@ -168,7 +166,7 @@ def calculate_subjective_score(locate_histories: list[LocationHistory]) -> float
 
 # 客観的スコア
 def calculate_objective_score(
-    locate_histories: list[LocationHistory], places: dict[str, GooglePlace]
+    locate_histories: list[LocationHistory], places: dict[str, GooglePlaceDetail]
 ) -> float:
 
     visits, activities = split_location_history(locate_histories)
@@ -214,7 +212,7 @@ def calculate_objective_score(
 
     # 観光スポットのジャンル多様性スコア diversity score
     def _calculate_diversity_score(
-        _visits: list[LocationHistory], _places: dict[str, GooglePlace]
+        _visits: list[LocationHistory], _places: dict[str, GooglePlaceDetail]
     ) -> float:
         all_visited_genres = set()
         for v in _visits:
@@ -258,7 +256,7 @@ def calculate_objective_score(
 
     # 一貫性スコア consistency score
     def _calculate_consistency_score(
-        _visits: list[LocationHistory], _places: dict[str, GooglePlace]
+        _visits: list[LocationHistory], _places: dict[str, GooglePlaceDetail]
     ) -> float:
         predefined_spots = [
             "ChIJYbZS19H5G2AR9FEDjP4DPdw",
@@ -303,10 +301,6 @@ def calculate_objective_score(
         return _travel_time_ratio
 
     efficiency_score = _calculate_efficiency_score(activities)
-
-    # スポット訪問数
-    spot_visit_count = len(set(v.visit.topCandidate.placeID for v in visits))
-    print("訪れたスポット数:", spot_visit_count)
 
 
 def main():

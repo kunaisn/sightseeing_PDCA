@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from pydantic.fields import Field
 
 
-class GooglePlace(BaseModel):
+class GooglePlaceDetail(BaseModel):
     name: str
     id: str
     types: list[str] = Field(default_factory=list)

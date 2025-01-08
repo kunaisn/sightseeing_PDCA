@@ -10,7 +10,6 @@ R = 6378137
 
 
 def geodesic_point_buffer(lat, lon, meters):
-    """緯度、経度、バッファ距離からバッファポリゴンを生成"""
     # Azimuthal equidistant projection
     aeqd_proj = "+proj=aeqd +lat_0={lat} +lon_0={lon} +x_0=0 +y_0=0"
     project = partial(
@@ -24,7 +23,6 @@ def geodesic_point_buffer(lat, lon, meters):
 
 
 def calculate_area_moved(lat1, lon1, lat2, lon2, buffer_meters=240):
-    """2点間の移動に伴う面積を計算"""
     line = LineString([(lon1, lat1), (lon2, lat2)])
     # ラインをバッファリングしてポリゴンを生成
     buffer_poly = line.buffer(buffer_meters / R * 180 / math.pi, cap_style=3)
@@ -32,7 +30,6 @@ def calculate_area_moved(lat1, lon1, lat2, lon2, buffer_meters=240):
 
 
 def calculate_total_area(coordinates, buffer_meters=80):
-    """全ての移動の総面積を計算"""
     total_poly = Polygon()
     for i in range(len(coordinates) - 1):
         lat1, lon1 = coordinates[i]
@@ -49,7 +46,6 @@ def calculate_total_area(coordinates, buffer_meters=80):
 
 
 def calculate_coverage_ratio(center_lat, center_lon, radius_meters, total_area_polygon):
-    """特定の座標の半径内の総移動面積の占める割合を計算"""
     # 指定された座標を中心に半径の円（ポリゴン）を作成
     circle_poly = geodesic_point_buffer(center_lat, center_lon, radius_meters)
 
