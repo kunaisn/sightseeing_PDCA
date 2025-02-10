@@ -79,10 +79,10 @@ def calculate_coverage_ratio(center_lat, center_lon, radius_meters, total_area_p
 if __name__ == "__main__":
     # 座標のリスト
     coordinates = [
-        (35.664149, 138.568460),
-        (35.667149, 138.571460),
-        (35.670149, 138.574460),
-        # 他の座標を追加
+        (35.616824414534264, 139.56440592352044),
+        (35.60782236062491, 139.55758682833218),
+        (35.61078838173439, 139.57271376968677),
+        (35.62033528410542, 139.5695660441778),
     ]
 
     # 総面積を計算
@@ -90,9 +90,9 @@ if __name__ == "__main__":
     print(f"総移動面積: {total_area} 平方メートル")
 
     # 特定の座標の半径4km内の総移動面積の占める割合を計算
-    center_lat = 35.664149
-    center_lon = 138.568460
-    radius_meters = 2000
+    center_lat = 35.61732612298189
+    center_lon = 139.56458680083134
+    radius_meters = 1500
 
     ratio = calculate_coverage_ratio(center_lat, center_lon, radius_meters, total_poly)
     print(f"観光範囲円以内で総移動面積の占める割合: {ratio * 100:.2f}%")

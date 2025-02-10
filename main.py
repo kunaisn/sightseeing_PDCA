@@ -175,22 +175,33 @@ def calculate_objective_score(
 
     # 観光範囲円内の総移動面積の割合 coverage score
     def _calculate_coverage_score(
-        _visits: list[LocationHistory], _activities: list[LocationHistory]
+        _locate_histories: list[LocationHistory],
+        _visits: list[LocationHistory],
+        _activities: list[LocationHistory],
     ) -> float:
         coordinates = []
-        for act in _activities:
-            coordinates.append(
-                (
-                    float(act.activity.start.split(",")[0][4:]),
-                    float(act.activity.start.split(",")[1]),
+        for act in _locate_histories:
+            if act.activity:
+                coordinates.append(
+                    (
+                        float(act.activity.start.split(",")[0][4:]),
+                        float(act.activity.start.split(",")[1]),
+                    )
                 )
-            )
-            coordinates.append(
-                (
-                    float(act.activity.end.split(",")[0][4:]),
-                    float(act.activity.end.split(",")[1]),
+                coordinates.append(
+                    (
+                        float(act.activity.end.split(",")[0][4:]),
+                        float(act.activity.end.split(",")[1]),
+                    )
                 )
-            )
+            if act.visit:
+                coordinates.append(
+                    (
+                        float(act.visit.topCandidate.placeLocation.split(",")[0][4:]),
+                        float(act.visit.topCandidate.placeLocation.split(",")[1]),
+                    )
+                )
+        print(coordinates)
 
         # 総移動面積を計算
         total_area, total_poly = calculate_total_area(coordinates)
@@ -210,7 +221,7 @@ def calculate_objective_score(
         )
         return ratio
 
-    coverage_score = _calculate_coverage_score(visits, activities)
+    coverage_score = _calculate_coverage_score(locate_histories, visits, activities)
 
     # 観光スポットのジャンル多様性スコア diversity score
     def _calculate_diversity_score(
@@ -257,10 +268,13 @@ def calculate_objective_score(
     ) -> float:
 
         predefined_spots = [
-            "ChIJAQCwt3xKH2AR_3tCWFLytiY",
-            "ChIJzf8_Y5VKH2ARoOHURdACADg",
-            "ChIJydrlbJZKH2ARMO2qjuAbKqg",
-            "ChIJQ-5mNpRKH2ARIFRMlWpL6bc",
+            "ChIJV1HmatnwGGAR6DMVTZsxLSs",
+            "ChIJT_J7QNHwGGARCPLMoWzogP4",
+            "ChIJ3-o6DtHwGGARL03njNlo6R0",
+            "ChIJp9RWFM7wGGARBjQIAceLeG4",
+            "ChIJCTNbYSvxGGARhT9-j573B_c",
+            "ChIJfWgQmCfxGGARCxeh1HwZfmo",
+            "ChIJA3LpSifxGGARSo92jQA-BGM",
         ]
         actually_visited_spots = [v.visit.topCandidate.placeID for v in _visits]
         for v in _visits:
@@ -308,7 +322,7 @@ def calculate_objective_score(
 
 
 def main():
-    date = "2025-01-24"
+    date = "2025-02-07"
     filepath = f"data/location-history_{date}.json"
     locate_histories = load_location_history_list(filepath)
     visits, activities = split_location_history(locate_histories)
