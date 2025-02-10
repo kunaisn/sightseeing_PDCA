@@ -1,17 +1,12 @@
 import json
 import time
 from datetime import datetime
-import math
 import requests
-from typing import List, Dict, Tuple
 from pydantic import ValidationError
 import os
 import random
-import configparser
 from dotenv import load_dotenv
 
-config_ini = configparser.ConfigParser()
-config_ini.read("config.ini", encoding="utf-8")
 load_dotenv()
 
 # Google Maps APIキーの環境変数読み込み
@@ -21,6 +16,10 @@ from models.LocationHistory import LocationHistory
 from models.GooglePlaceDetail import GooglePlaceDetail
 
 from geo_area_calculator import calculate_total_area, calculate_coverage_ratio
+from get_spread_sheet import (
+    get_latitude_longitude_from_spreadsheet,
+    get_manual_data_for_importance_score,
+)
 
 
 def load_location_history_list(filepath: str) -> list[LocationHistory]:
@@ -132,7 +131,7 @@ def parse_datetime(datetime_str: str) -> datetime:
 # LocationHistoryをvisitsとactivitiesに分けて戻す
 def split_location_history(
     locate_histories: list[LocationHistory],
-) -> Tuple[list[LocationHistory], list[LocationHistory]]:
+) -> tuple[list[LocationHistory], list[LocationHistory]]:
 
     visits: list[LocationHistory] = []
     activities: list[LocationHistory] = []
@@ -169,6 +168,9 @@ def calculate_objective_score(
     locate_histories: list[LocationHistory], places: dict[str, GooglePlaceDetail]
 ) -> float:
 
+    date = locate_histories[0].startTime.split("T")[0]
+    lat, lon = get_latitude_longitude_from_spreadsheet(date)
+
     visits, activities = split_location_history(locate_histories)
 
     # 観光範囲円内の総移動面積の割合 coverage score
@@ -194,10 +196,10 @@ def calculate_objective_score(
         total_area, total_poly = calculate_total_area(coordinates)
         print(f"総移動面積(移動周囲240メートル): {total_area} 平方メートル")
 
-        # 特定の座標の半径4km内の総移動面積の占める割合を計算
-        center_lat = config_ini["general"]["center-point-lat"]
-        center_lon = config_ini["general"]["center-point-lon"]
-        radius_meters = 2000
+        # 特定の座標の半径1.5km内の総移動面積の占める割合を計算
+        center_lat = lat
+        center_lon = lon
+        radius_meters = 1500
 
         ratio = calculate_coverage_ratio(
             center_lat, center_lon, radius_meters, total_poly
@@ -241,12 +243,7 @@ def calculate_objective_score(
 
     # p@5重要性スコア importance score
     def _calculate_importance_score(_visits: list[LocationHistory]) -> float:
-        # 武田神社　○
-        # 甲斐善光寺　×
-        # 山梨県立美術館　×
-        # 甲府城址　○
-        # サドヤワイナリー　×
-        labels = [1, 0, 0, 1, 0]
+        labels = get_manual_data_for_importance_score(date)
         # p@5 を計算する
         p_at_5 = sum(labels) / 5
         print("p@5(トリップアドバイザーから抽出):", p_at_5, end="\n\n")
@@ -258,17 +255,17 @@ def calculate_objective_score(
     def _calculate_consistency_score(
         _visits: list[LocationHistory], _places: dict[str, GooglePlaceDetail]
     ) -> float:
+
         predefined_spots = [
-            "ChIJYbZS19H5G2AR9FEDjP4DPdw",
-            "ChIJy9ZTqM_5G2ARjqEpyaSBwEo",
-            "ChIJz87s9M35G2ARN4qw5BWReqU",
-            "ChIJWwoIlDj4G2AR_SyHLzLtqPI",
-            "ChIJrzPTVXb3G2AR5_U91muZo_I",
+            "ChIJAQCwt3xKH2AR_3tCWFLytiY",
+            "ChIJzf8_Y5VKH2ARoOHURdACADg",
+            "ChIJydrlbJZKH2ARMO2qjuAbKqg",
+            "ChIJQ-5mNpRKH2ARIFRMlWpL6bc",
         ]
         actually_visited_spots = [v.visit.topCandidate.placeID for v in _visits]
-        # for v in _visits:
-        #     id = v.visit.topCandidate.placeID
-        #     print(id, _places[id].displayName["text"])
+        for v in _visits:
+            _id = v.visit.topCandidate.placeID
+            print(v.visit.topCandidate.placeID, _places[_id].displayName["text"])
 
         consistency_score = len(
             set(predefined_spots) & set(actually_visited_spots)
@@ -302,9 +299,16 @@ def calculate_objective_score(
 
     efficiency_score = _calculate_efficiency_score(activities)
 
+    print()
+    print("網羅性: ", coverage_score)
+    print("多様性: ", genre_diversity_score)
+    print("重要性: ", importance_score)
+    print("一貫性: ", consistency_score)
+    print("効率性: ", efficiency_score)
+
 
 def main():
-    date = config_ini["general"]["date"]
+    date = "2025-01-24"
     filepath = f"data/location-history_{date}.json"
     locate_histories = load_location_history_list(filepath)
     visits, activities = split_location_history(locate_histories)
