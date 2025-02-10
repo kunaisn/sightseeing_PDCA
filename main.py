@@ -210,7 +210,7 @@ def calculate_objective_score(
         # 特定の座標の半径1.5km内の総移動面積の占める割合を計算
         center_lat = lat
         center_lon = lon
-        radius_meters = 1500
+        radius_meters = 1200
 
         ratio = calculate_coverage_ratio(
             center_lat, center_lon, radius_meters, total_poly
@@ -281,35 +281,37 @@ def calculate_objective_score(
             _id = v.visit.topCandidate.placeID
             print(v.visit.topCandidate.placeID, _places[_id].displayName["text"])
 
-        consistency_score = len(
+        _consistency_score = len(
             set(predefined_spots) & set(actually_visited_spots)
         ) / len(actually_visited_spots)
         print(
             "訪れたスポットのうち、事前に設定されたスポットの比率:",
-            consistency_score,
+            _consistency_score,
             end="\n\n",
         )
-        return consistency_score
+        return _consistency_score
 
     consistency_score = _calculate_consistency_score(visits, places)
 
     # 移動時間比率スコア efficiency score
     def _calculate_efficiency_score(_activities: list[LocationHistory]) -> float:
-        total_duration = (
-            parse_datetime(locate_histories[-1].endTime)
-            - parse_datetime(locate_histories[0].startTime)
-        ).total_seconds()
-        total_travel_time = sum(
-            (
-                parse_datetime(activity.endTime) - parse_datetime(activity.startTime)
-            ).total_seconds()
-            for activity in _activities
+        total_distance_meters = sum(
+            float(a.activity.distanceMeters) for a in _activities
         )
-        _travel_time_ratio = total_travel_time / total_duration
-        print("総観光時間(秒):", total_duration)
-        print("移動時間(秒):", total_travel_time)
-        print("移動時間比率スコア:", _travel_time_ratio, end="\n\n")
-        return _travel_time_ratio
+        not_walk_distance_meters = sum(
+            (
+                float(a.activity.distanceMeters)
+                if a.activity.topCandidate.type == "cycling"
+                else float(a.activity.distanceMeters) * 0.5
+            )
+            for a in _activities
+            if a.activity.topCandidate.type not in ["walking"]
+        )
+        _not_walk_ratio = not_walk_distance_meters / total_distance_meters
+        print("総移動距離:", total_distance_meters)
+        print("徒歩以外の移動時間:", not_walk_distance_meters)
+        print("移動時間比率スコア:", _not_walk_ratio, end="\n\n")
+        return _not_walk_ratio
 
     efficiency_score = _calculate_efficiency_score(activities)
 
@@ -322,7 +324,7 @@ def calculate_objective_score(
 
 
 def main():
-    date = "2025-02-07"
+    date = "2025-01-16"
     filepath = f"data/location-history_{date}.json"
     locate_histories = load_location_history_list(filepath)
     visits, activities = split_location_history(locate_histories)

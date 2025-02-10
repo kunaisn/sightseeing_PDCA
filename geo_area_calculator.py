@@ -53,25 +53,19 @@ def calculate_coverage_ratio(center_lat, center_lon, radius_meters, total_area_p
     intersection_poly = total_area_polygon.intersection(circle_poly)
 
     # 共通部分の面積を計算
-    if not intersection_poly.is_empty:
-        proj = pyproj.Proj(
-            proj="aea",
-            lat_1=intersection_poly.bounds[1],
-            lat_2=intersection_poly.bounds[3],
-        )
-        wgs84 = pyproj.Proj(init="epsg:4326")
-        intersection_area = transform(
-            partial(pyproj.transform, wgs84, proj), intersection_poly
-        ).area
-        # 円の面積を計算
-        circle_area = transform(
-            partial(pyproj.transform, wgs84, proj), circle_poly
-        ).area
-
-        # 割合を計算
-        ratio = intersection_area / circle_area
-    else:
-        ratio = 0.0
+    proj = pyproj.Proj(
+        proj="aea",
+        lat_1=intersection_poly.bounds[1],
+        lat_2=intersection_poly.bounds[3],
+    )
+    wgs84 = pyproj.Proj(init="epsg:4326")
+    intersection_area = transform(
+        partial(pyproj.transform, wgs84, proj), intersection_poly
+    ).area
+    # 円の面積を計算
+    circle_area = transform(partial(pyproj.transform, wgs84, proj), circle_poly).area
+    # 割合を計算
+    ratio = intersection_area / circle_area
 
     return ratio
 

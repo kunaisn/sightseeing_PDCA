@@ -8,11 +8,28 @@ mpl.rc("font", family="Hiragino Sans")  # または 'Hiragino Kaku Gothic ProN' 
 # mpl.rc('font', family='Yu Gothic') #Windowsの例
 
 # データ (変更なし)
-data = {
+_data = {
     "満足度": {"1": 0.800, "2": 0.800, "3": 0.800, "4": 1.000},
     "推薦度": {"1": 0.600, "2": 0.800, "3": 0.600, "4": 0.800},
     "学び": {"1": 1.000, "2": 1.000, "3": 0.400, "4": 0.600},
+    "網羅性（Coverage）": {"1": 0.172, "2": 0.178, "3": 0.108, "4": 0.129},
+    "多様性（Diversity）": {"1": 0.555, "2": 0.444, "3": 0.444, "4": 0.555},
+    "重要性（Importance）": {"1": 0.800, "2": 0.200, "3": 0.200, "4": 0.800},
+    "一貫性（Coherence）": {"1": 0.285, "2": 0.666, "3": 0.666, "4": 1.000},
+    "効率性（Efficiency）": {"1": 0.146, "2": 0.328, "3": 0.597, "4": 0.534},
 }
+
+harmonic_means = {}
+
+for category in ["1", "2", "3", "4"]:
+    values = []
+    for metric in _data:
+        values.append(_data[metric][category])
+    values = np.array(values) + 1e-12
+    harmonic_mean = len(values) / np.sum(1 / values)
+    harmonic_means[category] = harmonic_mean
+
+data = {"調和平均": harmonic_means}
 
 # x軸のラベル
 places = [
