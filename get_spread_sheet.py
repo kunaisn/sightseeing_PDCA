@@ -4,21 +4,24 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+from models.SpreadsheetManualData import SpreadsheetManualData
 
 from dotenv import load_dotenv
-from tensorflow.python.data.kernel_tests.test_base import v1_only_combinations
 
 load_dotenv()
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
-# The ID and range of a sample spreadsheet.
-SAMPLE_SPREADSHEET_ID = "11_bSt65saR_i9z-2ecDgJPVoYl4_kZ51Nj6kti-nipQ"
-SAMPLE_RANGE_NAME = "sheet1!A1:M"
+SPREADSHEET_ID = "11_bSt65saR_i9z-2ecDgJPVoYl4_kZ51Nj6kti-nipQ"
+RANGE_NAME_COORDINATE = "coordinate!A2:D"
+RANGE_NAME_TRIPADVISOR = "tripadvisor!A2:K"
+RANGE_NAME_INDEX = "index!A2:J"
 SPREADSHEET_CREDENTIAL_PATH = os.getenv("SPREADSHEET_CREDENTIAL_PATH")
+SPREADSHEET_MANUAL_DATA = None
 
 
-def get_spreadsheet_data() -> list[list[str]]:
+def get_spreadsheet_manual_data() -> SpreadsheetManualData:
+    global SPREADSHEET_MANUAL_DATA
+    if SPREADSHEET_MANUAL_DATA is not None:
+        return SPREADSHEET_MANUAL_DATA
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -35,40 +38,107 @@ def get_spreadsheet_data() -> list[list[str]]:
 
     service = build("sheets", "v4", credentials=creds)
     sheet = service.spreadsheets()
-    result = (
-        sheet.values()
-        .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
-        .execute()
+    coordinate_list = [
+        SpreadsheetManualData.Coordinate(
+            date=row[0], name=row[1], latitude=float(row[2]), longitude=float(row[3])
+        )
+        for row in (
+            sheet.values()
+            .get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME_COORDINATE)
+            .execute()["values"]
+        )
+    ]
+    tripadvisor_list = [
+        SpreadsheetManualData.TripAdvisorRank(
+            date=row[0], spot=[(row[i], row[i + 5]) for i in range(1, 6)]
+        )
+        for row in (
+            sheet.values()
+            .get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME_TRIPADVISOR)
+            .execute()["values"]
+        )
+    ]
+    index_PDCA = [
+        SpreadsheetManualData.IndexPDCA(
+            date=row[0],
+            satisfaction=row[1],
+            recommendation=row[2],
+            learning_rate=row[3],
+            coverage=row[4],
+            diversity=row[5],
+            importance=row[6],
+            coherence=row[7],
+            efficiency=row[8],
+        )
+        for row in (
+            sheet.values()
+            .get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME_INDEX)
+            .execute()["values"]
+        )
+    ]
+    SPREADSHEET_MANUAL_DATA = SpreadsheetManualData(
+        coordinate=coordinate_list,
+        tripadvisor_rank=tripadvisor_list,
+        index_PDCA=index_PDCA,
     )
-    values = result.get("values", [])
-    if not values:
-        raise Exception("No data found. [get_spreadsheet_data]")
-    return values
+    return SPREADSHEET_MANUAL_DATA
+
+
+def transform_to_manual_date(date: str) -> str:
+    y, m, d = date.split("-")
+    return f"{y}年{int(m)}月{int(d)}日"
 
 
 def get_latitude_longitude_from_spreadsheet(date: str) -> tuple[float, float]:
-    values = get_spreadsheet_data()
-    y, m, d = date.split("-")
-    date = f"{y}年{int(m)}月{int(d)}日"
-    for row in values:
-        if row[0] == date:
-            return float(row[1]), float(row[2])
-    raise Exception("No data found. [get_latitude_longitude_from_spreadsheet]")
+    manual_data = get_spreadsheet_manual_data()
+    manual_date = transform_to_manual_date(date)
+    for coordinate in manual_data.coordinate:
+        if coordinate.date == manual_date:
+            return coordinate.latitude, coordinate.longitude
+    raise ValueError(f"Data not found for {date}")
 
 
-def get_manual_data_for_importance_score(date: str) -> list[int]:
-    values = get_spreadsheet_data()
-    y, m, d = date.split("-")
-    date = f"{y}年{int(m)}月{int(d)}日"
-    for row in values:
-        if row[0] == date:
-            v1 = row[8]
-            v2 = row[9]
-            v3 = row[10]
-            v4 = row[11]
-            v5 = row[12]
-            return [int(v1), int(v2), int(v3), int(v4), int(v5)]
-    raise Exception("No data found. [get_manual_data_for_importance_score]")
+def get_manual_data_for_importance_score(date: str) -> list[tuple[str, bool]]:
+    manual_data = get_spreadsheet_manual_data()
+    manual_date = transform_to_manual_date(date)
+    for tripadvisor in manual_data.tripadvisor_rank:
+        if tripadvisor.date == manual_date:
+            return tripadvisor.spot
+    raise ValueError(f"Data not found for {date}")
+
+
+def get_index_for_plot_data() -> tuple[dict[str, list[float]], list[str]]:
+    manual_data = get_spreadsheet_manual_data()
+    # IndexPDCAの日付と一致するCoordinateのnameをラベルとする
+    date_to_region = {}
+    for coordinate in manual_data.coordinate:
+        date_to_region[coordinate.date] = coordinate.name
+
+    index_labels = [
+        "満足度",
+        "推薦度",
+        "学び",
+        "網羅性",
+        "多様性",
+        "重要性",
+        "一貫性",
+        "効率性",
+    ]
+
+    index_data = {}
+    for index in manual_data.index_PDCA:
+        label = date_to_region[index.date]
+        index_data[label] = [
+            index.satisfaction,
+            index.recommendation,
+            index.learning_rate,
+            index.coverage,
+            index.diversity,
+            index.importance,
+            index.coherence,
+            index.efficiency,
+        ]
+    return index_data, index_labels
 
 
 if __name__ == "__main__":

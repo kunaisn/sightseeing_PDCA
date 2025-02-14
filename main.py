@@ -245,6 +245,7 @@ def calculate_objective_score(
         _genre_diversity_score = len(all_visited_categories) / len(
             predefined_genre_categories
         )
+        print(all_visited_categories)
         print("訪れたジャンルカテゴリの数:", len(all_visited_categories))
         print("定義されているジャンルカテゴリの数:", len(predefined_genre_categories))
         print("観光スポットのジャンル多様性スコア:", _genre_diversity_score, end="\n\n")
@@ -256,7 +257,7 @@ def calculate_objective_score(
     def _calculate_importance_score(_visits: list[LocationHistory]) -> float:
         labels = get_manual_data_for_importance_score(date)
         # p@5 を計算する
-        p_at_5 = sum(labels) / 5
+        p_at_5 = sum([1 if v[1] else 0 for v in labels]) / len(labels)
         print("p@5(トリップアドバイザーから抽出):", p_at_5, end="\n\n")
         return p_at_5
 
@@ -267,14 +268,14 @@ def calculate_objective_score(
         _visits: list[LocationHistory], _places: dict[str, GooglePlaceDetail]
     ) -> float:
 
+        # 手動入力
         predefined_spots = [
-            "ChIJV1HmatnwGGAR6DMVTZsxLSs",
-            "ChIJT_J7QNHwGGARCPLMoWzogP4",
-            "ChIJ3-o6DtHwGGARL03njNlo6R0",
-            "ChIJp9RWFM7wGGARBjQIAceLeG4",
-            "ChIJCTNbYSvxGGARhT9-j573B_c",
-            "ChIJfWgQmCfxGGARCxeh1HwZfmo",
-            "ChIJA3LpSifxGGARSo92jQA-BGM",
+            "ChIJCap9nvyEGGARhW4zrJIW3Wk",
+            "ChIJ2SBbo2CEGGARxYp8M2V-AXo",
+            "ChIJ2SBbo2CEGGARGu25AVhXE_I",
+            "ChIJIVngGv-EGGARUY89gmZ60P0",
+            "ChIJF969Gv-EGGARUhxiEV_Fk6U",
+            "ChIJ3yAxzv2EGGARXODwwfTlArc",
         ]
         actually_visited_spots = [v.visit.topCandidate.placeID for v in _visits]
         for v in _visits:
@@ -324,7 +325,7 @@ def calculate_objective_score(
 
 
 def main():
-    date = "2025-01-16"
+    date = "2025-02-12"
     filepath = f"data/location-history_{date}.json"
     locate_histories = load_location_history_list(filepath)
     visits, activities = split_location_history(locate_histories)
