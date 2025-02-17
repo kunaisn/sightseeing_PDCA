@@ -29,6 +29,6 @@ def extract_data_by_date(input_file, target_date):
 
 
 if __name__ == "__main__":
-    target_date_str = "2025-02-12"
+    target_date_str = "2025-02-16"
     input_json_file = f"location-history.json"
     extract_data_by_date(input_json_file, target_date_str)

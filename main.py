@@ -6,6 +6,7 @@ from pydantic import ValidationError
 import os
 import random
 from dotenv import load_dotenv
+import numpy as np
 
 load_dotenv()
 
@@ -115,7 +116,7 @@ def get_google_place_details_list(
 
 
 def load_predefined_genres_by_google_places_api() -> dict[str, set[str]]:
-    # Google Places APIで定義されているタイプを全て取得する
+    # Google Places APIで事前定義されているタイプを全て取得する
     with open("predefined_genres.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     predefined_genres = {
@@ -143,24 +144,6 @@ def split_location_history(
             activities.append(locate_history)
 
     return visits, activities
-
-
-# 主観的スコア
-def calculate_subjective_score(locate_histories: list[LocationHistory]) -> float:
-    # 総観光時間を計算
-    total_duration = (
-        parse_datetime(locate_histories[-1].endTime)
-        - parse_datetime(locate_histories[0].startTime)
-    ).total_seconds()
-
-    visits, activities = split_location_history(locate_histories)
-    # スポットの滞在時間割合
-    # 滞在時間の標準偏差
-
-    # ジャンルの多様性
-
-    # スポット訪問数
-    spot_visit_count: int = len(visits)
 
 
 # 客観的スコア
@@ -270,21 +253,29 @@ def calculate_objective_score(
 
         # 手動入力
         predefined_spots = [
-            "ChIJCap9nvyEGGARhW4zrJIW3Wk",
-            "ChIJ2SBbo2CEGGARxYp8M2V-AXo",
-            "ChIJ2SBbo2CEGGARGu25AVhXE_I",
-            "ChIJIVngGv-EGGARUY89gmZ60P0",
-            "ChIJF969Gv-EGGARUhxiEV_Fk6U",
-            "ChIJ3yAxzv2EGGARXODwwfTlArc",
+            "ChIJBYa7A0Iz-F8R6qe7HgH2XV0",
+            "ChIJodnti8vM-V8RVsLa8q-bYRs",
+            "ChIJ7fRyA8jM-V8RNuY11cu1Jlo",
+            "ChIJBYa7A0Iz-F8R6qe7HgH2XV0",
+            "ChIJhycOJtYz-F8RO54LaTG6_p0",
+            "ChIJF_AqPH4z-F8Rmtm1IKiShVQ",
+            "ChIJATPRNwAz-F8RcRE30FR7L78",
+            "ChIJBVmy-YMz-F8R5PID8D17Cpc",
+            "ChIJQ1TRt4cz-F8RxkcdIAmz2QU",
+            "ChIJsfC6oXQz-F8RdA1qXiF6jLs",
+            "ChIJR-yGmXMz-F8Rf07-P4u1PUM",
+            "ChIJBYa7A0Iz-F8R6qe7HgH2XV0",
+            "ChIJDT75skEz-F8RFWwV4pI3cpI",
         ]
-        actually_visited_spots = [v.visit.topCandidate.placeID for v in _visits]
+        predefined_spots = set(predefined_spots)
+        actually_visited_spots = set([v.visit.topCandidate.placeID for v in _visits])
         for v in _visits:
             _id = v.visit.topCandidate.placeID
             print(v.visit.topCandidate.placeID, _places[_id].displayName["text"])
 
         _consistency_score = len(
             set(predefined_spots) & set(actually_visited_spots)
-        ) / len(actually_visited_spots)
+        ) / len(actually_visited_spots | predefined_spots)
         print(
             "訪れたスポットのうち、事前に設定されたスポットの比率:",
             _consistency_score,
@@ -295,26 +286,54 @@ def calculate_objective_score(
     consistency_score = _calculate_consistency_score(visits, places)
 
     # 移動時間比率スコア efficiency score
-    def _calculate_efficiency_score(_activities: list[LocationHistory]) -> float:
-        total_distance_meters = sum(
-            float(a.activity.distanceMeters) for a in _activities
-        )
-        not_walk_distance_meters = sum(
-            (
-                float(a.activity.distanceMeters)
-                if a.activity.topCandidate.type == "cycling"
-                else float(a.activity.distanceMeters) * 0.5
-            )
-            for a in _activities
-            if a.activity.topCandidate.type not in ["walking"]
-        )
-        _not_walk_ratio = not_walk_distance_meters / total_distance_meters
-        print("総移動距離:", total_distance_meters)
-        print("徒歩以外の移動時間:", not_walk_distance_meters)
-        print("移動時間比率スコア:", _not_walk_ratio, end="\n\n")
-        return _not_walk_ratio
+    # def _calculate_efficiency_score(_activities: list[LocationHistory]) -> float:
+    #     total_distance_meters = sum(
+    #         float(a.activity.distanceMeters) for a in _activities
+    #     )
+    #     not_walk_distance_meters = sum(
+    #         (
+    #             float(a.activity.distanceMeters)
+    #             if a.activity.topCandidate.type == "cycling"
+    #             else float(a.activity.distanceMeters) * 0.5
+    #         )
+    #         for a in _activities
+    #         if a.activity.topCandidate.type not in ["walking"]
+    #     )
+    #     _not_walk_ratio = not_walk_distance_meters / total_distance_meters
+    #     print("総移動距離:", total_distance_meters)
+    #     print("徒歩以外の移動時間:", not_walk_distance_meters)
+    #     print("移動時間比率スコア:", _not_walk_ratio, end="\n\n")
+    #     return _not_walk_ratio
 
-    efficiency_score = _calculate_efficiency_score(activities)
+    def _calculate_efficiency_score_(_date: str) -> float:
+        with open("data/StepCount_10sec.json", "r") as f:
+            steps = json.load(f)
+        total_qty = 0.0
+        start_time_str = f"{_date} 11:00:00 +0900"
+        end_time_str = f"{_date} 19:00:00 +0900"
+        start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S %z")
+        end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S %z")
+        for item in steps:
+            item_date = datetime.strptime(item["date"], "%Y-%m-%d %H:%M:%S %z")
+            if start_time <= item_date <= end_time:
+                total_qty += item["qty"]
+        print()
+        print("歩数量:", total_qty)
+        max_steps = 30000
+        ratio = (max_steps - total_qty) / max_steps
+        print("歩数比率:", ratio)
+        print()
+        return ratio
+
+    efficiency_score = _calculate_efficiency_score_(date)
+
+    def _calculate_correlation():
+        satisfaction = np.array([0.8, 0.8, 0.8, 1.0, 1.0])
+        efficiency = np.array([0.202, 0.419, 0.482, 0.56, 0.539])
+        correlation_coefficient = np.corrcoef(satisfaction, efficiency)[0, 1]
+        print("満足度と効率性の相関係数:", correlation_coefficient)
+
+    _calculate_correlation()
 
     print()
     print("網羅性: ", coverage_score)
@@ -325,7 +344,7 @@ def calculate_objective_score(
 
 
 def main():
-    date = "2025-02-12"
+    date = "2025-02-16"
     filepath = f"data/location-history_{date}.json"
     locate_histories = load_location_history_list(filepath)
     visits, activities = split_location_history(locate_histories)
