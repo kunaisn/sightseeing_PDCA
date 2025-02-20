@@ -9,6 +9,7 @@ R: float = 6378137
 
 
 def geodesic_point_buffer(lat: float, lon: float, meters: float) -> Polygon:
+    # 球面座標系の点を中心とする円を作成
     aeqd_proj = f"+proj=aeqd +lat_0={lat} +lon_0={lon} +x_0=0 +y_0=0"
     project = partial(
         pyproj.transform,
@@ -21,16 +22,18 @@ def geodesic_point_buffer(lat: float, lon: float, meters: float) -> Polygon:
 
 
 def calculate_area_moved(
-    lat1: float, lon1: float, lat2: float, lon2: float, buffer_meters: int = 240
+    lat1: float, lon1: float, lat2: float, lon2: float, buffer_meters: float
 ) -> Polygon:
+    # 2点間の移動面積を計算
     line = LineString([(lon1, lat1), (lon2, lat2)])
     buffer_poly = line.buffer(buffer_meters / R * 180 / math.pi, cap_style="round")
     return buffer_poly
 
 
 def calculate_total_area(
-    coordinates: list[tuple[float, float]], buffer_meters: float = 80.0
+    coordinates: list[tuple[float, float]], buffer_meters: float
 ) -> tuple[float, Polygon]:
+    # 軌跡の総移動面積を計算
     total_poly = Polygon()
     for i in range(len(coordinates) - 1):
         lat1, lon1 = coordinates[i]
@@ -51,6 +54,7 @@ def calculate_coverage_ratio(
     radius_meters: float,
     total_area_polygon: Polygon,
 ) -> float:
+    # 観光範囲円と総移動面積の交差部分の面積の比を計算
     circle_poly = geodesic_point_buffer(center_lat, center_lon, radius_meters)
     intersection_poly = total_area_polygon.intersection(circle_poly)
     proj = pyproj.Proj(

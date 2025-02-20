@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-SPREADSHEET_ID = "11_bSt65saR_i9z-2ecDgJPVoYl4_kZ51Nj6kti-nipQ"
+SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 RANGE_NAME_COORDINATE = "coordinate!A2:D"
 RANGE_NAME_TRIPADVISOR = "tripadvisor!A2:K"
 RANGE_NAME_INDEX = "index!A2:J"

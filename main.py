@@ -187,8 +187,8 @@ def calculate_objective_score(
         print(coordinates)
 
         # 総移動面積を計算
-        total_area, total_poly = calculate_total_area(coordinates)
-        print(f"総移動面積(移動周囲240メートル): {total_area} 平方メートル")
+        total_area, total_poly = calculate_total_area(coordinates, 80.0)
+        print(f"総移動面積(移動周囲80メートル): {total_area} 平方メートル")
 
         # 特定の座標の半径1.5km内の総移動面積の占める割合を計算
         center_lat = lat
